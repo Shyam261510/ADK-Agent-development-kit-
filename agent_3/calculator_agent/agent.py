@@ -5,8 +5,9 @@ OPERATIONS = {
     "subtract": ["subtract", "minus", "subtraction"],
     "multiply": ["multiply", "times", "multiplication"],
     "divide": ["divide", "division"],
-    "percentage": ["percentage", "percent"]
+    "percentage": ["percentage", "percent"],
 }
+
 
 def normalize_operation(op: str) -> str:
     op = op.lower()
@@ -14,7 +15,6 @@ def normalize_operation(op: str) -> str:
         if op in keywords:
             return key
     return None
-
 
 
 def calculate(operation: str, number1: int, number2: int) -> dict:
@@ -42,9 +42,8 @@ def calculate(operation: str, number1: int, number2: int) -> dict:
         return {"result": result}
     except Exception as e:
         return {"error": str(e)}
-    
 
-        
+
 root_agent = Agent(
     name="calculator_agent",
     description="An AI assistant that performs basic math calculations.",
@@ -67,5 +66,5 @@ root_agent = Agent(
 
     Keep responses short, clear, and user-friendly.
     """,
-    tools=[calculate]
+    tools=[calculate],
 )

@@ -1,16 +1,15 @@
 from google.adk.agents import Agent
 from datetime import datetime
 
+
 def get_current_Time() -> dict:
     """
     Get the current time in the format YYYY-MM-DD HH:MM:SS
     """
     current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    return {
-        "current_time":current_time
-    }
+    return {"current_time": current_time}
 
-    
+
 root_agent = Agent(
     name="greeting_agent",
     description="Greeting Agent",
@@ -52,7 +51,5 @@ root_agent = Agent(
     You can change the conversation initiate message and  greeting message according to you.
 
 """,
-
-tools=[get_current_Time]
-
+    tools=[get_current_Time],
 )
