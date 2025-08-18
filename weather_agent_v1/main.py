@@ -56,15 +56,12 @@ async def main_async():
 
     SESSION_ID = uuid4().__str__()
 
-        # Define initial state data - user prefers Celsius initially
-    initial_state = {
-        "user_preference_temperature_unit": "Celsius"
-    }
+    # Define initial state data - user prefers Celsius initially
+    initial_state = {"user_preference_temperature_unit": "Celsius"}
 
     session = session_service.create_session(
-        app_name=APP_NAME, user_id=USER_ID, session_id=SESSION_ID,state=initial_state
+        app_name=APP_NAME, user_id=USER_ID, session_id=SESSION_ID, state=initial_state
     )
-
 
     # --- Runner ---
     # Key Concept: Runner orchestrates the agent execution loop.
@@ -72,9 +69,7 @@ async def main_async():
         agent=weather_agent,  # The agent we want to run
         app_name=APP_NAME,  # Associates runs with our app
         session_service=session_service,
-        
-        
-            )
+    )
 
     print(
         f"Session created: App='{APP_NAME}', User='{USER_ID}', Session='{SESSION_ID}'"
@@ -83,25 +78,23 @@ async def main_async():
     print(f"Runner created for agent '{runner.agent.name}'.")
 
     while True:
-        user_input = input("You: ")      
+        user_input = input("You: ")
 
-            # 2. Manually update state preference to Fahrenheit - DIRECTLY MODIFY STORAGE
+        # 2. Manually update state preference to Fahrenheit - DIRECTLY MODIFY STORAGE
         print("\n--- Manually Updating State: Setting unit to Fahrenheit ---")
-            
-                # Access the internal storage directly - THIS IS SPECIFIC TO InMemorySessionService for testing
-                # NOTE: In production with persistent services (Database, VertexAI), you would
-                # typically update state via agent actions or specific service APIs if available,
-                # not by direct manipulation of internal storage.
+
+        # Access the internal storage directly - THIS IS SPECIFIC TO InMemorySessionService for testing
+        # NOTE: In production with persistent services (Database, VertexAI), you would
+        # typically update state via agent actions or specific service APIs if available,
+        # not by direct manipulation of internal storage.
         stored_session = session_service.sessions[APP_NAME][USER_ID][SESSION_ID]
-        stored_session.state['user_preference_temperature_unit'] = 'Fahrenheit'
-  
-        
-         # Call the agent first
+        stored_session.state["user_preference_temperature_unit"] = "Fahrenheit"
+
+        # Call the agent first
         await call_agent_async(
             query=user_input, runner=runner, user_id=USER_ID, session_id=SESSION_ID
         )
-        
-        
+
         # If user wants to quit, break after calling
         if user_input.lower() in ["byy", "quit"]:
             print("👋 Exiting chat...")
