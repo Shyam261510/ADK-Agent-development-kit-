@@ -1,62 +1,80 @@
 from google.adk.agents import Agent
-from google.adk.models.lite_llm import LiteLlm 
 from dotenv import load_dotenv
-from pydantic import BaseModel , Field
+from google.adk.tools import ToolContext
+# from pydantic import BaseModel , Field
+from sub_tools.farewell_agent import farewell_agent
+from sub_tools.greeting_agent import greeting_agent
+from sub_tools.context_agent import context_agent
 
 load_dotenv()
 
-# --- Define Output Schema ---
+# # --- Define Output Schema ---
 
-class WeatherReportSchema(BaseModel):
-    status: str = Field(description="Indicates request result: 'success' or 'error'")
-    response: str = Field(description="If success → weather report; if error → error message")
+# class WeatherReportSchema(BaseModel):
+#     status: str = Field(description="Indicates request result: 'success' or 'error'")
+#     response: str = Field(description="If success → weather report; if error → error message")
 
 # @title Define the get_weather Tool
 
-def get_weather(city:str)-> dict:
-    """
-    Retrives the current weather data for user specified city.
 
-    Args: city:str -> The name of the city ( e.g "New York" , "Landon" , "Tokoyo" )
+def get_weather(city: str,tool_context:ToolContext) -> dict:
+     """Retrieves weather, converts temp unit based on session state."""
+     print(f"--- Tool: get_weather_stateful called for {city} ---")
 
-    return dict -> Dictonary which conatin the following information.
 
-                - "status" key which can be ( error or success ).
-                - If "status" key value is success then it includes "report" key which contain the actual weather data
-                - If "status" key value is error then it includes "error_message" key which contain error message.
-      """
-    print(f"--- Tool: get_weather called for city: {city} ---")
-
-    city_normalized = city.lower().replace(" ", "")
-
-    # Mock weather data
-    mock_weather_db = {
-        "newyork": {"status": "success", "report": "The weather in New York is sunny with a temperature of 25°C."},
-        "london": {"status": "success", "report": "It's cloudy in London with a temperature of 15°C."},
-        "tokyo": {"status": "success", "report": "Tokyo is experiencing light rain and a temperature of 18°C."},
-    }
-
-    if city_normalized in mock_weather_db:
-        return mock_weather_db[city_normalized]
-    else:
-        return {"status": "error", "error_message": f"Sorry, I don't have weather information for '{city}'."}
+        # --- Read preference from state ---
     
+     preferred_unit = tool_context.state.get("user_preference_temperature_unit", "Celsius") # Default to Celsius
+     print(f"--- Tool: Reading state 'user_preference_temperature_unit': {preferred_unit} ---")
+
+     city_normalized = city.lower().replace(" ", "")
+
+        # Mock weather data (always stored in Celsius internally)
+     mock_weather_db = {
+            "newyork": {"temp_c": 25, "condition": "sunny"},
+            "london": {"temp_c": 15, "condition": "cloudy"},
+            "tokyo": {"temp_c": 18, "condition": "light rain"},
+        }
+
+     if city_normalized in mock_weather_db:
+            data = mock_weather_db[city_normalized]
+            temp_c = data["temp_c"]
+            condition = data["condition"]
+
+            # Format temperature based on state preference
+            if preferred_unit == "Fahrenheit":
+                temp_value = (temp_c * 9/5) + 32 # Calculate Fahrenheit
+                temp_unit = "°F"
+            else: # Default to Celsius
+                temp_value = temp_c
+                temp_unit = "°C"
+
+            report = f"The weather in {city.capitalize()} is {condition} with a temperature of {temp_value:.0f}{temp_unit}."
+            result = {"status": "success", "report": report}
+            print(f"--- Tool: Generated report in {preferred_unit}. Result: {result} ---")
+
+            # Example of writing back to state (optional for this tool)
+            tool_context.state["last_city_checked_stateful"] = city
+            print(f"--- Tool: Updated state 'last_city_checked_stateful': {city} ---")
+
+            return result
 
 
 weather_agent = Agent(
     name="weather_agent_v1",
-    description="Weather Assistant",
+    description="The main coordinator agent. Handles weather requests and delegates greetings/farewells to specialists.",
     model="gemini-2.0-flash",
     instruction="""
-    You are a helpful weather assistant how gives the weather report based on the user specified city.
-    - Extract the city name from the user request.
-    - Use the get_weather tool and pass the city name to the tool
-        example ( User : What is the weather of London city or london here city is London or london)
-    - If tool return error then give polite response
-    - If tool doesn't give error then return the weather report which the user request's.
+            You are the main Weather Agent coordinating a team. Your primary responsibility is to provide weather information. "
+                    "Use the 'get_weather' tool ONLY for specific weather requests (e.g., 'weather in London'). "
+                    "You have specialized sub-agents: "
+                    "1. 'greeting_agent': Handles simple greetings like 'Hi', 'Hello'. Delegate to it for these. "
+                    "2. 'farewell_agent': Handles simple farewells like 'Bye', 'See you'. Delegate to it for these. "
+                    "3. 'context_agent': Give the context of above held conversation like 'How the conversation starts?' , 'What user asks?' , 'How it ends ?'
+                    "Analyze the user's query. If it's a greeting, delegate to 'greeting_agent'. If it's a farewell, delegate to 'farewell_agent'. "
+                    "If it's a weather request, handle it yourself using 'get_weather'. "
+                    "For anything else, respond appropriately or state you cannot handle it."
 """,
-tools=[get_weather],
-output_schema=WeatherReportSchema,
-output_key="weather_report"
+    tools=[get_weather],
+    sub_agents=[greeting_agent, farewell_agent, context_agent],
 )
-
